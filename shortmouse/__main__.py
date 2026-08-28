@@ -8,7 +8,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gio, Gtk  # noqa: E402
+from gi.repository import Adw, Gio  # noqa: E402
 
 from shortmouse.atspi_scan import scan
 from shortmouse.hints import make_labels
@@ -31,21 +31,15 @@ def dump() -> int:
 
 class Shortmouse(Adw.Application):
     def __init__(self):
-        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.FLAGS_NONE)
-        self._win: Gtk.Window | None = None
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.NON_UNIQUE)
 
     def do_activate(self) -> None:  # noqa: N802
         targets = scan()
         labels = make_labels(len(targets))
         for label, target in zip(labels, targets):
             target.label = label
-        if not targets:
-            print("shortmouse: no clickable AT-SPI widgets found", file=sys.stderr)
-            self.quit()
-            return
-        self._win = OverlayWindow(targets, on_done=self.quit)
-        self._win.set_application(self)
-        self._win.present()
+        win = OverlayWindow(self, targets, on_done=self.quit)
+        win.present()
 
 
 def main(argv: list[str] | None = None) -> int:

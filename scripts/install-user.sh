@@ -43,7 +43,7 @@ if command -v gsettings >/dev/null; then
   fi
   # Super+Shift+Space — same chord as Shortcat on a Mac (Cmd+Shift+Space)
   gsettings set ${schema}.custom-keybinding:${path} name "shortmouse"
-  gsettings set ${schema}.custom-keybinding:${path} command "${BIN}"
+  gsettings set ${schema}.custom-keybinding:${path} command "gio launch ${DESKTOP}"
   gsettings set ${schema}.custom-keybinding:${path} binding "<Super><Shift>space"
   # do not fight ourselves: drop that chord from older experiments
   for old in hints reach; do

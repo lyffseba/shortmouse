@@ -7,5 +7,6 @@ Icon=input-mouse
 Type=Application
 Categories=Utility;
 Terminal=false
-StartupNotify=false
+StartupNotify=true
+StartupWMClass=shortmouse
 Keywords=Shortcat;Hints;Keyboard;Mouse;Accessibility;AT-SPI;

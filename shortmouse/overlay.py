@@ -1,4 +1,6 @@
-"""Fullscreen letter overlay (original; not a fork of hints)."""
+"""Visible letter HUD. GNOME Wayland cannot host a transparent overlay
+without a Shell extension, so this is a real always-on-top window.
+"""
 
 from __future__ import annotations
 
@@ -7,27 +9,41 @@ from typing import Callable
 import gi
 
 gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Gdk, GLib, Gtk, Pango, PangoCairo  # noqa: E402
+from gi.repository import Adw, Gdk, GLib, Gtk, Pango  # noqa: E402
 
 from shortmouse.atspi_scan import Target, click
 
 CSS = b"""
-window.shortmouse-overlay {
-  background-color: alpha(black, 0.18);
+window.shortmouse-hud {
+  background-color: #1b1b1b;
+}
+.shortmouse-chip {
+  background-color: #ffd54a;
+  color: #1a1408;
+  font-weight: 800;
+  font-family: monospace;
+  padding: 2px 8px;
+  border-radius: 6px;
+  min-width: 28px;
+}
+.shortmouse-title {
+  font-size: 14px;
 }
 """
 
 
-class OverlayWindow(Gtk.Window):
-    def __init__(self, targets: list[Target], on_done: Callable[[], None]):
-        super().__init__(title="shortmouse")
-        self.add_css_class("shortmouse-overlay")
-        self.set_decorated(False)
+class OverlayWindow(Adw.ApplicationWindow):
+    def __init__(self, application, targets: list[Target], on_done: Callable[[], None]):
+        super().__init__(application=application, title="shortmouse")
+        self.add_css_class("shortmouse-hud")
+        self.set_default_size(560, 520)
         self.set_resizable(True)
-        self._targets = targets
+        self._all = targets
         self._typed = ""
         self._on_done = on_done
+        self._rows: list[Target] = []
 
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
@@ -37,99 +53,175 @@ class OverlayWindow(Gtk.Window):
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
 
-        self.area = Gtk.DrawingArea()
-        self.area.set_hexpand(True)
-        self.area.set_vexpand(True)
-        self.area.set_draw_func(self._draw)
-        self.set_child(self.area)
+        toolbar = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        title = Gtk.Label(label="shortmouse")
+        title.add_css_class("title")
+        header.set_title_widget(title)
+        toolbar.add_top_bar(header)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_margin_top(8)
+        box.set_margin_bottom(12)
+        box.set_margin_start(14)
+        box.set_margin_end(14)
+
+        self.hint = Gtk.Label(xalign=0)
+        self.hint.add_css_class("dim-label")
+        self.hint.set_wrap(True)
+        box.append(self.hint)
+
+        self.entry = Gtk.Entry()
+        self.entry.set_placeholder_text("Type the yellow letters…")
+        self.entry.connect("changed", self._on_typed)
+        self.entry.connect("activate", lambda *_: self._activate_first())
+        box.append(self.entry)
+
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_vexpand(True)
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.listbox = Gtk.ListBox()
+        self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.listbox.add_css_class("boxed-list")
+        self.listbox.connect("row-activated", lambda *_: self._activate_selected())
+        scrolled.set_child(self.listbox)
+        box.append(scrolled)
+
+        self.empty = Gtk.Label(
+            label="No matches. GTK apps (Terminal, Files, Settings) work best.",
+            xalign=0,
+        )
+        self.empty.add_css_class("dim-label")
+        self.empty.set_wrap(True)
+        box.append(self.empty)
+
+        toolbar.set_content(box)
+        self.set_content(toolbar)
 
         keys = Gtk.EventControllerKey()
         keys.connect("key-pressed", self._on_key)
         self.add_controller(keys)
+        self.connect("close-request", lambda *_: self._finish() or False)
+        self.connect("map", lambda *_: self.entry.grab_focus())
+        self._render()
 
-        self.fullscreen()
-        self.connect("close-request", lambda *_: self._finish())
+    def _matches(self) -> list[Target]:
+        q = (self._typed or "").lower()
+        if not q:
+            return list(self._all)
+        out = []
+        for t in self._all:
+            blob = f"{t.label} {t.title} {t.app}".lower()
+            if t.label.startswith(q) or q in blob:
+                out.append(t)
+        return out
 
-    def _visible(self) -> list[Target]:
-        if not self._typed:
-            return self._targets
-        return [t for t in self._targets if t.label.startswith(self._typed)]
-
-    def _draw(self, _area, cr, width: int, height: int) -> None:
-        cr.set_source_rgba(0, 0, 0, 0.18)
-        cr.rectangle(0, 0, width, height)
-        cr.fill()
-
-        layout = PangoCairo.create_layout(cr)
-        desc = Pango.FontDescription("Sans Bold 11")
-        layout.set_font_description(desc)
-
-        for target in self._visible():
-            text = target.label
-            rest = text[len(self._typed) :]
-            shown = self._typed.upper() + rest.upper() if self._typed else text.upper()
-            layout.set_text(shown, -1)
-            tw, th = layout.get_pixel_size()
-            pad_x, pad_y = 6, 3
-            box_w, box_h = tw + pad_x * 2, th + pad_y * 2
-            x = max(0, min(width - box_w, target.x + 2))
-            y = max(0, min(height - box_h, target.y + 2))
-
-            cr.set_source_rgb(1.0, 0.835, 0.290)  # shortmouse yellow
-            _round_rect(cr, x, y, box_w, box_h, 4)
-            cr.fill()
-            cr.set_source_rgb(0.12, 0.10, 0.05)
-            cr.move_to(x + pad_x, y + pad_y)
-            PangoCairo.show_layout(cr, layout)
+    def _on_typed(self, entry: Gtk.Entry) -> None:
+        self._typed = (entry.get_text() or "").strip().lower()
+        self._render()
+        matches = self._matches()
+        letter_hits = [t for t in matches if t.label.startswith(self._typed)] if self._typed else []
+        if self._typed and len(letter_hits) == 1 and self._typed == letter_hits[0].label:
+            self._pick(letter_hits[0])
 
     def _on_key(self, _c, keyval, _code, _state) -> bool:
         if keyval == Gdk.KEY_Escape:
             self._finish()
             return True
-        if keyval == Gdk.KEY_BackSpace:
-            self._typed = self._typed[:-1]
-            self.area.queue_draw()
+        if keyval == Gdk.KEY_Down:
+            self._move(1)
             return True
-        if keyval == Gdk.KEY_Return:
-            vis = self._visible()
-            if len(vis) == 1:
-                self._pick(vis[0])
+        if keyval == Gdk.KEY_Up:
+            self._move(-1)
             return True
-        ch = Gdk.keyval_to_unicode(keyval)
-        if not ch:
-            return False
-        letter = chr(ch).lower()
-        if letter not in "abcdefghijklmnopqrstuvwxyz":
-            return False
-        candidate = self._typed + letter
-        matches = [t for t in self._targets if t.label.startswith(candidate)]
-        if not matches:
-            return True
-        self._typed = candidate
-        if len(matches) == 1:
-            self._pick(matches[0])
+        return False
+
+    def _move(self, delta: int) -> None:
+        row = self.listbox.get_selected_row()
+        rows = []
+        i = 0
+        while True:
+            r = self.listbox.get_row_at_index(i)
+            if r is None:
+                break
+            rows.append(r)
+            i += 1
+        if not rows:
+            return
+        idx = rows.index(row) if row in rows else 0
+        idx = max(0, min(len(rows) - 1, idx + delta))
+        self.listbox.select_row(rows[idx])
+
+    def _render(self) -> None:
+        while True:
+            row = self.listbox.get_row_at_index(0)
+            if row is None:
+                break
+            self.listbox.remove(row)
+
+        matches = self._matches()
+        self._rows = matches
+        n = len(self._all)
+        if n == 0:
+            self.hint.set_text(
+                "No clickable widgets in the focused app. Try Files, Settings, or Terminal."
+            )
         else:
-            self.area.queue_draw()
-        return True
+            self.hint.set_text(
+                f"{len(matches)} / {n}  ·  type yellow letters, or click a row. Esc cancels."
+            )
+        self.empty.set_visible(not matches)
+
+        for target in matches[:80]:
+            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            row_box.set_margin_top(8)
+            row_box.set_margin_bottom(8)
+            row_box.set_margin_start(10)
+            row_box.set_margin_end(10)
+            chip = Gtk.Label(label=target.label.upper())
+            chip.add_css_class("shortmouse-chip")
+            texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            title = Gtk.Label(label=target.title, xalign=0)
+            title.add_css_class("shortmouse-title")
+            title.set_ellipsize(Pango.EllipsizeMode.END)
+            sub = Gtk.Label(label=f"{target.role} · {target.app}", xalign=0)
+            sub.add_css_class("dim-label")
+            sub.set_ellipsize(Pango.EllipsizeMode.END)
+            texts.append(title)
+            texts.append(sub)
+            row_box.append(chip)
+            row_box.append(texts)
+            row = Gtk.ListBoxRow()
+            row.set_child(row_box)
+            self.listbox.append(row)
+
+        if matches:
+            first = self.listbox.get_row_at_index(0)
+            if first:
+                self.listbox.select_row(first)
+
+    def _activate_first(self) -> None:
+        if self._rows:
+            self._pick(self._rows[0])
+
+    def _activate_selected(self) -> None:
+        row = self.listbox.get_selected_row()
+        if row is None:
+            return
+        idx = row.get_index()
+        if 0 <= idx < len(self._rows):
+            self._pick(self._rows[idx])
 
     def _pick(self, target: Target) -> None:
         self.hide()
-        GLib.idle_add(self._click_and_finish, target)
+        GLib.timeout_add(80, self._click_and_finish, target)
 
     def _click_and_finish(self, target: Target) -> bool:
         click(target.accessible)
         self._finish()
         return False
 
-    def _finish(self) -> None:
+    def _finish(self) -> bool:
         self.close()
         self._on_done()
-
-
-def _round_rect(cr, x, y, w, h, r) -> None:
-    cr.new_sub_path()
-    cr.arc(x + w - r, y + r, r, -1.57, 0)
-    cr.arc(x + w - r, y + h - r, r, 0, 1.57)
-    cr.arc(x + r, y + h - r, r, 1.57, 3.14)
-    cr.arc(x + r, y + r, r, 3.14, 4.71)
-    cr.close_path()
+        return True

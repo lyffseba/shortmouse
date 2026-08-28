@@ -107,17 +107,48 @@ def click(obj) -> None:
             pass
         return
     names = [_action_name(obj, i) for i in range(n)]
-    for want in ("click", "press", "doDefault", "activate"):
+    skip = {"window.close", "window.minimize", "close", "minimize"}
+    for want in (
+        "click",
+        "press",
+        "doDefault",
+        "default.activate",
+        "activate",
+        "window.raise",
+    ):
         if want in names:
             obj.do_action(names.index(want))
             return
-    obj.do_action(0)
+    for i, name in enumerate(names):
+        if name not in skip:
+            obj.do_action(i)
+            return
+
+
+def _add(found, seen, app_name, obj, role, name, x, y, w, h) -> None:
+    key = (app_name, role, name, x, y, w, h)
+    if key in seen:
+        return
+    seen.add(key)
+    found.append(
+        Target(
+            label="",
+            title=name,
+            app=app_name,
+            role=role,
+            x=x,
+            y=y,
+            w=w,
+            h=h,
+            accessible=obj,
+        )
+    )
 
 
 def scan() -> list[Target]:
     desktop = Atspi.get_desktop(0)
     found: list[Target] = []
-    seen: set[tuple[int, int, int, int]] = set()
+    seen: set[tuple] = set()
     total = 0
 
     for i in range(desktop.get_child_count()):
@@ -138,33 +169,21 @@ def scan() -> list[Target]:
             role = _role(obj)
             name = _name(obj)
             nact = _n_actions(obj)
-            if (
-                _showing(obj)
-                and nact
-                and name
-                and role in CLICK_ROLES
-            ):
-                try:
-                    ext = obj.get_extents(Atspi.CoordType.SCREEN)
-                except Exception:
-                    ext = None
-                if ext and ext.width >= 8 and ext.height >= 8:
-                    key = (ext.x, ext.y, ext.width, ext.height)
-                    if key not in seen:
-                        seen.add(key)
-                        found.append(
-                            Target(
-                                label="",
-                                title=name,
-                                app=app_name,
-                                role=role,
-                                x=ext.x,
-                                y=ext.y,
-                                w=ext.width,
-                                h=ext.height,
-                                accessible=obj,
-                            )
-                        )
+            x = y = w = h = 0
+            try:
+                ext = obj.get_extents(Atspi.CoordType.SCREEN)
+                x, y, w, h = ext.x, ext.y, ext.width, ext.height
+            except Exception:
+                pass
+
+            if role in {"frame", "window"} and name:
+                _add(found, seen, app_name, obj, "window", name, x, y, w, h)
+            elif name and nact and role in CLICK_ROLES:
+                showing = _showing(obj)
+                is_menu = "menu" in role
+                if showing or is_menu:
+                    _add(found, seen, app_name, obj, role, name, x, y, w, h)
+
             try:
                 count = obj.get_child_count()
             except Exception:
@@ -179,4 +198,6 @@ def scan() -> list[Target]:
 
         visit(app, 0)
 
+    # windows first, then the rest
+    found.sort(key=lambda t: (0 if t.role == "window" else 1, t.app, t.title.lower()))
     return found
