@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=shortmouse
+GenericName=Keyboard letter hints
+Comment=Type letters to click GUI widgets. Unofficial Shortcat-style tool for Linux.
+Exec=shortmouse
+Icon=input-mouse
+Type=Application
+Categories=Utility;
+Terminal=false
+StartupNotify=false
+Keywords=Shortcat;Hints;Keyboard;Mouse;Accessibility;AT-SPI;
