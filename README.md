@@ -45,6 +45,12 @@ make uninstall-user
 2. Super+Shift+Space.
 3. Type the letters on a yellow chip. Esc cancels. Backspace undoes.
 
+## Stack
+
+[docs/STACK.md](docs/STACK.md) pins the Makefile, the desktop install,
+the shell scripts, and the Python runtime to their current stable
+manuals.
+
 ## Related work
 
 - [Shortcat](https://shortcat.app/) — the macOS command palette that
