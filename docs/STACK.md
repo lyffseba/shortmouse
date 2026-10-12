@@ -1,6 +1,6 @@
 # Stack
 
-Reviewed: 2026-09-25.
+Reviewed: 2026-10-12.
 
 This is the map from the tools this repository actually runs to the
 official manuals for their latest stable releases. It covers four
@@ -31,16 +31,21 @@ named in the README install line. They are outside this pin set.
 | Packaging | desktop-file-utils 0.28 | [Project page](https://www.freedesktop.org/wiki/Software/desktop-file-utils/). The tools check the Desktop Entry Specification; they have no separate user manual. Upstream NEWS date for 0.28 is 2024-10-25. | 25 October 2024 |
 | Packaging | GNU coreutils 9.12 | [coreutils manual, edition 9.12](https://www.gnu.org/software/coreutils/manual/coreutils.html), last updated 12 September 2026, including [`install`](https://www.gnu.org/software/coreutils/manual/html_node/install-invocation.html). Edition line is `doc/version.texi` in the [9.12 tarball](https://ftp.gnu.org/gnu/coreutils/coreutils-9.12.tar.xz). | 14 September 2026 |
 | Scripts | Bash 5.3, patch 20 | [Bash Reference Manual, edition 5.3](https://www.gnu.org/software/bash/manual/bash.html), last updated 18 May 2025, for Bash 5.3. Sources: [bash-5.3.tar.gz](https://ftp.gnu.org/gnu/bash/bash-5.3.tar.gz) plus patches through [bash53-020](https://ftp.gnu.org/gnu/bash/bash-5.3-patches/bash53-020) (14 September 2026), which is Bash 5.3.20. | Manual 18 May 2025; patch 20 on 14 September 2026 |
-| Language runtime | CPython 3.14.7 | [Python 3.14.7 documentation](https://docs.python.org/release/3.14.7/) (frozen snapshot). [Release](https://www.python.org/downloads/release/python-3147/) (5 August 2026). Schedule: [PEP 745](https://peps.python.org/pep-0745/). | 5 August 2026 |
+| Language runtime | CPython 3.15.0 | [Python 3.15.0 documentation](https://docs.python.org/release/3.15.0/) (frozen snapshot). [Release](https://www.python.org/downloads/release/python-3150/) (9 October 2026). Schedule: [PEP 790](https://peps.python.org/pep-0790/). | 9 October 2026 |
 
-CPython 3.15 is a pre-release (first release planned for 1 October 2026,
-[PEP 790](https://peps.python.org/pep-0790/)). It is not a pin.
+CPython 3.15.0 is a stable feature release (9 October 2026,
+[PEP 790](https://peps.python.org/pep-0790/)), in bugfix. It is the pin.
+CPython 3.14.8 is the newest bugfix on the previous branch
+([release](https://www.python.org/downloads/release/python-3148/),
+30 September 2026; [PEP 745](https://peps.python.org/pep-0745/)).
+It is not the pin. Pages that describe 3.14 behavior use the
+[3.14.8 snapshot](https://docs.python.org/release/3.14.8/).
 
 GNU Make development snapshots use a minor version of `.90` or higher
 (4.4.90 is a pretest, not a release). None is newer than 4.4.1 on
 `ftp.gnu.org/gnu/make/`.
 
-## Drift on 2026-09-25
+## Drift on 2026-10-12
 
 "Tree floor" is the oldest release that can run what the tip actually
 uses. "Host" is the Ubuntu image this review was written on
@@ -57,7 +62,7 @@ desktop-file-utils 0.27). A desktop's apt versions will differ.
 | Menu spec | `Categories=Utility;` | 1.1 | n/a | `/menu/latest/` matches the numbered 1.1 text. |
 | Icon naming spec | `Icon=input-mouse` | Numbered 0.8.90 | n/a | `/icon-naming/latest/` still says version 0.8.90 and adds a deprecated-names section plus later icon names. `input-mouse` is in the numbered 0.8.90 list. |
 | XDG base directory | `~/.local/share` and `~/.local/bin` | Numbered 0.8 | n/a | `/basedir/latest/` still says version 0.8. It corrects typos and changes the directory-list separator from "a colon" to "the separator used for `$PATH`". The installer never reads those variables; it writes the 0.8 defaults. |
-| CPython | 3.9, because [`shortmouse/hints.py`](../shortmouse/hints.py) evaluates `list[str]` ([PEP 585](https://peps.python.org/pep-0585/)) and does not import `annotations` from `__future__`. | 3.14.7 frozen docs | 3.12.3 | 3.9 is end-of-life (last release 3.9.25, 31 October 2025). 3.10 security support ends October 2026. 3.14 is the newest stable bugfix series. Unversioned `https://docs.python.org/3/` currently serves 3.14 and will move to 3.15 when that becomes stable. |
+| CPython | 3.9, because [`shortmouse/hints.py`](../shortmouse/hints.py) evaluates `list[str]` ([PEP 585](https://peps.python.org/pep-0585/)) and does not import `annotations` from `__future__`. | 3.15.0 frozen docs | 3.12.3 | 3.9 is end-of-life (last release 3.9.25, 31 October 2025). 3.10 is end-of-life (last release 3.10.22; support ended 1 October 2026). 3.15 is the newest stable bugfix series. Unversioned `https://docs.python.org/3/` serves 3.15.0. |
 
 ## Makefile
 
@@ -170,9 +175,9 @@ export PYTHONPATH="${SHARE}${PYTHONPATH:+:$PYTHONPATH}"
 exec python3 -m shortmouse "$@"
 ```
 
-`python3 -m shortmouse` is the [CPython `-m` switch](https://docs.python.org/release/3.14.7/using/cmdline.html#cmdoption-m):
+`python3 -m shortmouse` is the [CPython `-m` switch](https://docs.python.org/release/3.15.0/using/cmdline.html#cmdoption-m):
 run the package's `__main__` module. See
-[`__main__`](https://docs.python.org/release/3.14.7/library/__main__.html).
+[`__main__`](https://docs.python.org/release/3.15.0/library/__main__.html).
 
 Two host commands are called when they exist, and their versions are
 whatever GNOME the machine has. This repo does not pin a GLib or
@@ -192,12 +197,12 @@ The runtime is CPython, invoked as `python3`. The package version in
 There is no `python_requires` marker because there is no Python
 package metadata.
 
-Pinned documentation, frozen at the 3.14.7 release:
+Pinned documentation, frozen at the 3.15.0 release:
 
-- [Documentation home](https://docs.python.org/release/3.14.7/)
-- [Language reference](https://docs.python.org/release/3.14.7/reference/index.html)
-- [What's new in 3.14](https://docs.python.org/release/3.14.7/whatsnew/3.14.html)
-- [`dataclasses`](https://docs.python.org/release/3.14.7/library/dataclasses.html), used by `atspi_scan.py`
+- [Documentation home](https://docs.python.org/release/3.15.0/)
+- [Language reference](https://docs.python.org/release/3.15.0/reference/index.html)
+- [What's new in 3.15](https://docs.python.org/release/3.15.0/whatsnew/3.15.html)
+- [`dataclasses`](https://docs.python.org/release/3.15.0/library/dataclasses.html), used by `atspi_scan.py`
 
 ### Which Python the code can run
 
@@ -206,28 +211,32 @@ Pinned documentation, frozen at the 3.14.7 release:
 On 3.9 through 3.13 those annotations are evaluated when the function
 is defined. `list[str]` works from 3.9 on
 ([PEP 585](https://peps.python.org/pep-0585/),
-[what's new in 3.9](https://docs.python.org/release/3.14.7/whatsnew/3.9.html#pep-585-type-hinting-generics-in-standard-collections)).
+[what's new in 3.9](https://docs.python.org/release/3.15.0/whatsnew/3.9.html#type-hinting-generics-in-standard-collections)).
 That file sets the floor at 3.9. `dataclasses` is older than that.
 
 The other modules do import annotations from `__future__`
-([future statements](https://docs.python.org/release/3.14.7/reference/simple_stmts.html#future-statements),
+([future statements](https://docs.python.org/release/3.15.0/reference/simple_stmts.html#future-statements),
 [PEP 563](https://peps.python.org/pep-0563/)). Their annotations,
 including `list[str] | None` in `__main__.py`, are stored as strings
 and are not evaluated at definition time. That union syntax is why a
 quick reading suggests a 3.10 floor. The import makes the expression
 inert, so it does not raise the floor.
 
-On 3.14 the default changed. [PEP 649 and PEP 749](https://docs.python.org/release/3.14.7/whatsnew/3.14.html#pep-649-pep-749-deferred-evaluation-of-annotations)
+On 3.14 the default changed. [PEP 649 and PEP 749](https://docs.python.org/release/3.14.8/whatsnew/3.14.html#pep-649-pep-749-deferred-evaluation-of-annotations)
 defer annotation evaluation, except in modules that still use
 `from __future__ import annotations`. At the tip:
 
 - `hints.py` follows the version default: eager on 3.9–3.13, deferred on 3.14 and newer.
 - `__main__.py`, `overlay.py`, and `atspi_scan.py` keep PEP 563 string annotations on 3.14 as well.
 
-3.14.7 is the newest stable release, in bugfix status until October
-2030 ([PEP 745](https://peps.python.org/pep-0745/)). 3.13 is also in
-bugfix. 3.12 and 3.11 are in security-only. 3.10's security window
-ends October 2026. 3.9 is already end-of-life. Status is the table on
+3.15.0 is the newest stable release, in bugfix, with support through
+October 2031 ([PEP 790](https://peps.python.org/pep-0790/)). 3.14.8 is
+the newest 3.14 bugfix. That series is still in bugfix; support runs
+through October 2030, and [PEP 745](https://peps.python.org/pep-0745/)
+expects the last regular bugfix around October 2027, then source-only
+security updates. 3.13, 3.12, and 3.11 are in security-only. 3.10 is
+end-of-life (last release 3.10.22, support ended 1 October 2026). 3.9
+is already end-of-life. Status is the table on
 [python.org/downloads](https://www.python.org/downloads/).
 
 ## Re-pinning
@@ -235,7 +244,7 @@ ends October 2026. 3.9 is already end-of-life. Status is the table on
 Do this when an upstream stable release ships, or before a docs change
 that touches these links. Skip alphas, betas, and release candidates.
 
-1. CPython. Read [python.org/downloads](https://www.python.org/downloads/). Pin the newest series whose status is bugfix or security, and the newest patch of that series. Leave a pre-release series off the table. Point every Python link at `https://docs.python.org/release/X.Y.Z/`, which is frozen. `https://docs.python.org/3.14/` keeps moving inside the series. `https://docs.python.org/3/` jumps when a new series becomes the default. A patch of an older branch (a new 3.13.x while 3.14 is the pin) does not move the pin.
+1. CPython. Read [python.org/downloads](https://www.python.org/downloads/). Pin the newest series whose status is bugfix or security, and the newest patch of that series. Leave a pre-release series off the table. Point every Python link at `https://docs.python.org/release/X.Y.Z/`, which is frozen. `https://docs.python.org/3.15/` keeps moving inside the series. `https://docs.python.org/3/` jumps when a new series becomes the default. A patch of an older branch (a new 3.14.x while 3.15 is the pin) does not move the pin.
 2. GNU Make. List `https://ftp.gnu.org/gnu/make/`. The pin is the highest version that is not a `.90`+ pretest. Open the manual's first page and confirm it still names that version. If the HTML on gnu.org has moved on, the previous pin is `doc/make.texi` inside the tarball you had recorded.
 3. Bash. Take the newest `bash-X.Y.tar.gz` that is not labeled alpha, beta, or rc, then the highest `bashXY-NNN` file under `bash-X.Y-patches/`. Patch `NNN` means Bash `X.Y.NNN`. The reference manual is edition `X.Y`; it is not reissued for each patch. Record the manual date and the patch date separately.
 4. coreutils. Take the newest `coreutils-X.Y.tar.xz` from `https://ftp.gnu.org/gnu/coreutils/`. The manual edition and its "last updated" date are `EDITION` and `UPDATED` in `doc/version.texi` inside that tarball. The gnu.org HTML is republished in place, so the tarball is the pin that cannot move under you.
